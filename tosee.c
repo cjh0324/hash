@@ -237,7 +237,7 @@ int main() {
     for (i = 0; i < num_data_caches; i++) {
         // Modification
         memset(latencies, 0, sizeof(latencies));
-        test_cache(attempts, cache_sizes[i] / 4, latencies, sizeof(latencies) / sizeof(*latencies));
+        test_cache(attempts, cache_sizes[i] / 2, latencies, sizeof(latencies) / sizeof(*latencies));
 
         // Original
         // int j;
