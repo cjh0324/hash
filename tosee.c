@@ -155,7 +155,7 @@ int main() {
     // Modification
     cpu_set_t set;
     CPU_ZERO(&set);
-    CPU_SET(0, &set);
+    CPU_SET(1, &set);
     sched_setaffinity(0, sizeof(cpu_set_t), &set);
 
     size_t cache_sizes[32];
