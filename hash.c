@@ -5,6 +5,7 @@
 #include <linux/mman.h>
 
 #define ARRAYSIZE 2147483648L
+#define CACHESIZE 64L
 
 // #define MYPAGESIZE 1073741824UL      // 1GB
 // #define NUMPAGES 2L
@@ -24,6 +25,9 @@ unsigned long long get_pagemap_entry(void *va);
 
 // cache_latency.c interface
 int cache_latency(double *address);
+
+// polling.c interface
+int polling(void* address);
 
 double *array;
 double *page_pointers[NUMPAGES];
@@ -70,11 +74,23 @@ int main(int argc, char *argv[])
         pagemapentry = get_pagemap_entry(&array[k]);
         pageframenumber[j] = (pagemapentry & (unsigned long) 0x007FFFFFFFFFFFFF);
         // printf(" %.5ld   %.10ld  %18p  %#18lx  %#18lx  %#18lx\n",j,k,&array[k],pagemapentry,pageframenumber[j],(pageframenumber[j]<<12));
-        printf("VA:  %18p     pagemap_entry:  %#18lx     PA:  %#18lx\n", &array[k], pagemapentry, (pageframenumber[j]<<12));
+        // printf("VA:  %18p     pagemap_entry:  %#18lx     PA:  %#18lx\n", &array[k], pagemapentry, (pageframenumber[j]<<12));
     }
 
     // Estimate L3 latency
     // cache_latency(&array[0]);
+    
+
+    // Polling to get cache slice
+    printf("For Test! First page addresses\n");
+    // for (j=0; j<MYPAGESIZE/CACHESIZE; j++) {
+    for (j=0; j<10; j++) {
+        k = j * CACHESIZE/sizeof(double);
+        polling(&array[k]);
+        // CHANGE!!! Need to change pageframenumber index below
+        uintptr_t paddr = pageframenumber[0]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
+        // printf(" %.5ld   %.10ld  %18p  %#18lx\n",j,k,&array[k],(pageframenumber[0]<<12 | (uintptr_t)&array[k]&0x1FFFFF));
+    }
 
     // print page addresses (just a few of them?)
     printf("PAGE_ADDRESSES ");
