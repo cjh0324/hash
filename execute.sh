@@ -1,3 +1,3 @@
 make clean
 make
-./hash.out
+./src/hash.out
