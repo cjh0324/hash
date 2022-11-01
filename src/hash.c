@@ -167,7 +167,10 @@ int main(int argc, char *argv[])
             pread(msr_fd, &counter[1], sizeof(msr_val), 0x716);
             // printf("Slice 1 LLC_LOOKUP count: %ld\n", counter[1]);
             counter[0] = (counter[1] > counter[0]);
-            paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
+            // 2MB
+            // paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
+            // 1GB
+            paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x3FFFFFFF;
             // sprintf(buffer, "Slice 0 LLC_LOOKUP : %10ld Slice 1 LLC_LOOKUP: %10ld, VA: %18p, PA: %#18lx\n",counter[0],counter[1],&array[k],paddr);
             sprintf(buffer, "%lx\t%ld\n",paddr,counter[0]);
             // printf("Is it cool? %s, %d\n, buffer", strlen(buffer));

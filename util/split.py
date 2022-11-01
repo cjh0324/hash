@@ -1,4 +1,4 @@
-f1 = open("txt/paddr", "a")
+f1 = open("txt/paddr_hex", "a")
 f2 = open("txt/slice", "a")
 
 with open("mapping") as bookfile:
