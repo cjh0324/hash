@@ -10,7 +10,7 @@
 
 #define ARRAYSIZE 2147483648L
 #define CACHESIZE 64L
-#define NUMCHAS   12
+#define NUMCHAS   18
 
 // #define MYPAGESIZE 1073741824UL      // 1GB
 // #define NUMPAGES 2L
@@ -95,20 +95,6 @@ int main(int argc, char *argv[])
     // Estimate L3 latency
     // cache_latency(&array[0]);
    
-    // Set MSR to count LLC access
-    /*
-    nr_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-    proc_in_pkg[0] = 0;
-    proc_in_pkg[1] = nr_cpus-1;
-    for (pkg = 0; pkg < 2; pkg++) {
-        sprintf(filename, "/dev/cpu/%d/msr", proc_in_pkg[pkg]);
-        msr_fd[pkg] = open(filename, O_RDWR);
-        if (msr_fd == -1) {
-            fprintf(stderr, "ERROR %s when trying to open %s\n", strerror(errno), filename);
-            exit(-1);
-        }
-    }
-    */
     sprintf(filename, "/dev/cpu/0/msr");
     msr_fd = open(filename, O_RDWR);
     if (msr_fd == -1) {
@@ -121,29 +107,21 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERROR %s when trying to open %s\n", strerror(errno), filename);
         exit(-1);
     }
-    /*
-    for (pkg=0; pkg<2; pkg++) {
-		pread(msr_fd[pkg],&msr_val,sizeof(msr_val),0x10L);
-		fprintf(stdout,"DEBUG: TSC on core %d socket %d is %ld\n",proc_in_pkg[pkg],pkg,msr_val);
-	}
-    */
+
     pread(msr_fd, &msr_val, sizeof(msr_val), 0x186L);
     printf("Core PerfEvtSel0: %ld\n", msr_val);
     // pwrite test
     msr_val = 0x0L;
-    if (!pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x706)) {
+    if (!pwrite(msr_fd, &msr_val, sizeof(msr_val), 0xE18)) {
         perror("pwrite test failed!");
     }
-    // Stop all counting in all LLC slices
-    // msr_val = 0x0L;
-    // pwrite(msr_fd, &msr_val, sizeof(msr_val), 0xE01);
-    // Configure LLC_LOOKUP event in all 2 LLC slices
+    // Configure LLC_LOOKUP event in all CHAs
     for (tile=0; tile<NUMCHAS; tile++) {
         msr_num = 0xe00 + 0x10 * tile;
         msr_val = 0x00400000;
         pwrite(msr_fd, &msr_val, sizeof(msr_val), msr_num);
         msr_num = 0xe00 + 0x10 * tile + 1;
-        msr_val = 0x00400334;
+        msr_val = 0x00401f34;
         pwrite(msr_fd, &msr_val, sizeof(msr_val), msr_num);
         msr_num = 0xe00 + 0x10 * tile + 5;
         msr_val = 0x01e20000;
@@ -172,20 +150,16 @@ int main(int argc, char *argv[])
                 msr_num = 0xe00 + 0x10 * tile + 0x8;
                 pread(msr_fd, &msr_val, sizeof(msr_val), msr_num);
                 if (msr_val > counter[0]) {
-                  counter[1] = tile;
+                  counter[1] = tile+1;
                   counter[0] = msr_val;
                 }
                 printf("Slice %d LLC_LOOKUP count: %ld\n", tile, msr_val);
             }
-            // printf("Slice 0 LLC_LOOKUP count: %ld\n", counter[0]);
             // 2MB
             paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
             // 1GB
             // paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x3FFFFFFF;
-            // sprintf(buffer, "Slice 0 LLC_LOOKUP : %10ld Slice 1 LLC_LOOKUP: %10ld, VA: %18p, PA: %#18lx\n",counter[0],counter[1],&array[k],paddr);
             sprintf(buffer, "%lx\t%ld\n",paddr,counter[1]);
-            // printf("Is it cool? %s, %d\n, buffer", strlen(buffer));
-            // write(mapping_fd, buffer, strlen(buffer));
             if (!write(mapping_fd, buffer, strlen(buffer))) {
                 perror("Cannot write to file.");
                 exit(1);
