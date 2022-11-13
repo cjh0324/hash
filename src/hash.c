@@ -10,14 +10,15 @@
 
 #define ARRAYSIZE 2147483648L
 #define CACHESIZE 64L
+#define NUMCHAS   12
 
-#define MYPAGESIZE 1073741824UL      // 1GB
+// #define MYPAGESIZE 1073741824UL      // 1GB
+// #define NUMPAGES 2L
+// #define PAGES_MAPPED 2L
+
+#define MYPAGESIZE 2097152L     // 2MB
 #define NUMPAGES 2L
-#define PAGES_MAPPED 2L
-
-// #define MYPAGESIZE 2097152L     // 2MB
-// #define NUMPAGES 1024L
-// #define PAGES_MAPPED 14L
+#define PAGES_MAPPED 14L
 
 // #define MYPAGESIZE 4096L     // 4KB
 // #define NUMPAGES 524288L
@@ -48,9 +49,9 @@ int main(int argc, char *argv[])
     long i, j, k;
     char filename[100];
     char buffer[120];
-    int pkg;
+    int pkg, tile;
     int nr_cpus;
-    uint64_t msr_val;
+    uint64_t msr_val, msr_num;
     uint64_t counter[2];
     int msr_fd;
     int mapping_fd;
@@ -59,8 +60,8 @@ int main(int argc, char *argv[])
     len = NUMPAGES * MYPAGESIZE;
     printf("len: %ldMB\n", len/(1UL<<20));
     // Change later to use super page
-    array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_1GB, -1 , 0);
-    // array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1 , 0);
+    // array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_1GB, -1 , 0);
+    array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1 , 0);
     // array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1 , 0);
 
     if (array == (void *)(-1)) {
@@ -114,7 +115,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERROR %s when trying to open %s\n", strerror(errno), filename);
         exit(-1);
     }
-    sprintf(filename, "mapping");
+    sprintf(filename, "txt/mapping");
     mapping_fd = open(filename, O_RDWR | O_APPEND | O_CREAT);
     if (mapping_fd == -1) {
         fprintf(stderr, "ERROR %s when trying to open %s\n", strerror(errno), filename);
@@ -126,53 +127,63 @@ int main(int argc, char *argv[])
 		fprintf(stdout,"DEBUG: TSC on core %d socket %d is %ld\n",proc_in_pkg[pkg],pkg,msr_val);
 	}
     */
-    pread(msr_fd, &msr_val, sizeof(msr_val), 0x396L);
-    printf("Uncore C-Box Configuration Information: %ld\n", msr_val);
+    pread(msr_fd, &msr_val, sizeof(msr_val), 0x186L);
+    printf("Core PerfEvtSel0: %ld\n", msr_val);
     // pwrite test
     msr_val = 0x0L;
     if (!pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x706)) {
         perror("pwrite test failed!");
     }
     // Stop all counting in all LLC slices
-    msr_val = 0x0L;
-    pwrite(msr_fd, &msr_val, sizeof(msr_val), 0xE01);
+    // msr_val = 0x0L;
+    // pwrite(msr_fd, &msr_val, sizeof(msr_val), 0xE01);
     // Configure LLC_LOOKUP event in all 2 LLC slices
-    msr_val = 0x508f34;
-    pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x700L);
-    pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x710L);
+    for (tile=0; tile<NUMCHAS; tile++) {
+        msr_num = 0xe00 + 0x10 * tile;
+        msr_val = 0x00400000;
+        pwrite(msr_fd, &msr_val, sizeof(msr_val), msr_num);
+        msr_num = 0xe00 + 0x10 * tile + 1;
+        msr_val = 0x00400334;
+        pwrite(msr_fd, &msr_val, sizeof(msr_val), msr_num);
+        msr_num = 0xe00 + 0x10 * tile + 5;
+        msr_val = 0x01e20000;
+        pwrite(msr_fd, &msr_val, sizeof(msr_val), msr_num);
+    }
     
     // Polling to get cache slice
     printf("For Test! First page addresses\n");
     // for (i=0; i<NUMPAGES; i++) {
     for (i=0; i<1; i++) {
         k = i * MYPAGESIZE/sizeof(double) - CACHESIZE/sizeof(double);
-        for (j=0; j<MYPAGESIZE/CACHESIZE; j++) {
-        // for (j=0; j<10; j++) {
+        // for (j=0; j<MYPAGESIZE/CACHESIZE; j++) {
+        for (j=0; j<10; j++) {
             k += CACHESIZE/sizeof(double);
             // Initialize counted values
-            msr_val = 0x0L;
-            pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x706);
-            pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x716);
-            // Start all counters
-            msr_val = 0x2000000f;
-            pwrite(msr_fd, &msr_val, sizeof(msr_val), 0xE01);
+            for (tile=0; tile<NUMCHAS; tile++) {
+                msr_num = 0xe00 + 0x10 * tile + 0x8;
+                msr_val = 0x0L;
+                pwrite(msr_fd, &msr_val, sizeof(msr_val), msr_num);
+            }
             // POLLING
             polling(&array[k]);
-            // Stop all counting in all LLC slices
-            msr_val = 0x0L;
-            pwrite(msr_fd, &msr_val, sizeof(msr_val), 0xE01);
             // Read all counter registers
-            pread(msr_fd, &counter[0], sizeof(msr_val), 0x706);
+            counter[0] = 0;
+            for (tile=0; tile<NUMCHAS; tile++) {
+                msr_num = 0xe00 + 0x10 * tile + 0x8;
+                pread(msr_fd, &msr_val, sizeof(msr_val), msr_num);
+                if (msr_val > counter[0]) {
+                  counter[1] = tile;
+                  counter[0] = msr_val;
+                }
+                printf("Slice %d LLC_LOOKUP count: %ld\n", tile, msr_val);
+            }
             // printf("Slice 0 LLC_LOOKUP count: %ld\n", counter[0]);
-            pread(msr_fd, &counter[1], sizeof(msr_val), 0x716);
-            // printf("Slice 1 LLC_LOOKUP count: %ld\n", counter[1]);
-            counter[0] = (counter[1] > counter[0]);
             // 2MB
-            // paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
+            paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
             // 1GB
-            paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x3FFFFFFF;
+            // paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x3FFFFFFF;
             // sprintf(buffer, "Slice 0 LLC_LOOKUP : %10ld Slice 1 LLC_LOOKUP: %10ld, VA: %18p, PA: %#18lx\n",counter[0],counter[1],&array[k],paddr);
-            sprintf(buffer, "%lx\t%ld\n",paddr,counter[0]);
+            sprintf(buffer, "%lx\t%ld\n",paddr,counter[1]);
             // printf("Is it cool? %s, %d\n, buffer", strlen(buffer));
             // write(mapping_fd, buffer, strlen(buffer));
             if (!write(mapping_fd, buffer, strlen(buffer))) {
@@ -184,8 +195,10 @@ int main(int argc, char *argv[])
 
     // Initialize event selector
     msr_val = 0x0L;
-    pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x700);
-    pwrite(msr_fd, &msr_val, sizeof(msr_val), 0x710);
+    for (tile=0; tile<NUMCHAS; tile++) {
+        msr_num = 0xe00 + 0x10 * tile;
+        pwrite(msr_fd, &msr_val, sizeof(msr_val), msr_num);
+    }
     
 
     // print page addresses (just a few of them?)
