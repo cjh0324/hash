@@ -17,7 +17,7 @@
 // #define PAGES_MAPPED 2L
 
 #define MYPAGESIZE 2097152L     // 2MB
-#define NUMPAGES 2L
+#define NUMPAGES 512L
 #define PAGES_MAPPED 14L
 
 // #define MYPAGESIZE 4096L     // 4KB
@@ -130,11 +130,11 @@ int main(int argc, char *argv[])
     
     // Polling to get cache slice
     printf("For Test! First page addresses\n");
-    // for (i=0; i<NUMPAGES; i++) {
-    for (i=0; i<1; i++) {
+    for (i=0; i<NUMPAGES; i++) {
+    // for (i=0; i<2; i++) {
         k = i * MYPAGESIZE/sizeof(double) - CACHESIZE/sizeof(double);
-        // for (j=0; j<MYPAGESIZE/CACHESIZE; j++) {
-        for (j=0; j<10; j++) {
+        for (j=0; j<MYPAGESIZE/CACHESIZE; j++) {
+        // for (j=0; j<10; j++) {
             k += CACHESIZE/sizeof(double);
             // Initialize counted values
             for (tile=0; tile<NUMCHAS; tile++) {
@@ -150,10 +150,10 @@ int main(int argc, char *argv[])
                 msr_num = 0xe00 + 0x10 * tile + 0x8;
                 pread(msr_fd, &msr_val, sizeof(msr_val), msr_num);
                 if (msr_val > counter[0]) {
-                  counter[1] = tile+1;
+                  counter[1] = tile;
                   counter[0] = msr_val;
                 }
-                printf("Slice %d LLC_LOOKUP count: %ld\n", tile, msr_val);
+                // printf("Slice %d LLC_LOOKUP count: %ld\n", tile, msr_val);
             }
             // 2MB
             paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
