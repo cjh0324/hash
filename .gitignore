@@ -1,2 +1,4 @@
 MNIST_data/
 txt/
+.ccls-cache/
+tags
