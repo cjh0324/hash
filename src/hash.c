@@ -12,13 +12,13 @@
 #define CACHESIZE 64L
 #define NUMCHAS   18
 
-// #define MYPAGESIZE 1073741824UL      // 1GB
-// #define NUMPAGES 2L
-// #define PAGES_MAPPED 2L
+#define MYPAGESIZE 1073741824UL      // 1GB
+#define NUMPAGES 2L
+#define PAGES_MAPPED 2L
 
-#define MYPAGESIZE 2097152L     // 2MB
-#define NUMPAGES 512L
-#define PAGES_MAPPED 14L
+// #define MYPAGESIZE 2097152L     // 2MB
+// #define NUMPAGES 512L
+// #define PAGES_MAPPED 14L
 
 // #define MYPAGESIZE 4096L     // 4KB
 // #define NUMPAGES 524288L
@@ -60,8 +60,8 @@ int main(int argc, char *argv[])
     len = NUMPAGES * MYPAGESIZE;
     printf("len: %ldMB\n", len/(1UL<<20));
     // Change later to use super page
-    // array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_1GB, -1 , 0);
-    array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1 , 0);
+    array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_1GB, -1 , 0);
+    // array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1 , 0);
     // array = (double*) mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1 , 0);
 
     if (array == (void *)(-1)) {
@@ -156,9 +156,9 @@ int main(int argc, char *argv[])
                 // printf("Slice %d LLC_LOOKUP count: %ld\n", tile, msr_val);
             }
             // 2MB
-            paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
+            // paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x1FFFFF;
             // 1GB
-            // paddr = pageframenumber[i]<<12 | (uintptr_t)&array[k] & 0x3FFFFFFF;
+            paddr = pageframenumber[i]<<12 | ((uintptr_t) &array[k] & 0x3FFFFFFF);
             sprintf(buffer, "%lx\t%ld\n",paddr,counter[1]);
             if (!write(mapping_fd, buffer, strlen(buffer))) {
                 perror("Cannot write to file.");
